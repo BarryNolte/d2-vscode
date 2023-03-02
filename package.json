@@ -31,7 +31,9 @@
   "contributes": {
     "taskDefinitions": [
       {
-        "type": "D2"
+        "type": "D2",
+        "required": [],
+        "properties": {}
       }
     ],
     "problemMatchers": [
@@ -218,12 +220,12 @@
       ],
       "editor/context": [
         {
-          "command": "D2.ShowPreviewWindow",
+          "command": "D2.CompileToSvg",
           "when": "resourceLangId == d2",
           "group": "d2"
         },
         {
-          "command": "D2.CompileToSvg",
+          "command": "D2.ShowPreviewWindow",
           "when": "resourceLangId == d2",
           "group": "d2"
         }

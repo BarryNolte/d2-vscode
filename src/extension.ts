@@ -6,6 +6,8 @@ import {
   commands,
   ExtensionContext,
   languages,
+  TaskProvider,
+  tasks,
   TextDocument,
   TextDocumentChangeEvent,
   TextDocumentSaveReason,
@@ -27,6 +29,7 @@ import { d2Tasks } from "./tasks";
 import { util } from "./utility";
 import path = require("path");
 import { TextEncoder } from "util";
+import { CustomBuildTaskProvider } from "./taskProvider";
 
 const d2Ext = "d2";
 const d2Lang = "d2";
@@ -38,6 +41,8 @@ export let ws: WorkspaceConfiguration =
 export const outputChannel: D2OutputChannel = new D2OutputChannel();
 export const taskRunner: TaskRunner = new TaskRunner();
 export let extContext: ExtensionContext;
+
+const customTaskProvider: TaskProvider = new CustomBuildTaskProvider();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function activate(context: ExtensionContext): any {
@@ -224,6 +229,8 @@ export function activate(context: ExtensionContext): any {
       }
     })
   );
+
+  tasks.registerTaskProvider("D2", customTaskProvider);
 
   /** Find all open d2 files and add to tracker if they are
    *  open before the extension loads

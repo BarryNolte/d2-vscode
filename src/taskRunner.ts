@@ -5,20 +5,20 @@ import {
   Event,
   EventEmitter,
   Pseudoterminal,
-  Task,
   TaskPanelKind,
   TaskRevealKind,
   tasks,
-  TaskScope,
 } from "vscode";
 import { outputChannel } from "./extension";
 import { d2Tasks } from "./tasks";
+import { TaskEx } from "./taskProvider";
 
 // eslint-disable-next-line no-unused-vars
 export type TaskRunnerCallback = (data: string) => void;
 // eslint-disable-next-line no-unused-vars
 export type TaskOutput = (text: string, flag?: boolean) => void;
-
+// eslint-disable-next-line no-unused-vars
+export type TaskFunction = (text: string,filePath: string, log?: TaskOutput, terminal?: TaskOutput) => string;
 /**
  * TaskRunner - This creates CustomTask and Pseudotermial to run it in.
  * This will return immediately, the tasks callback should be called
@@ -31,7 +31,13 @@ export class TaskRunner {
     text: string,
     callback: TaskRunnerCallback
   ): void {
-    const pty = new CustomTaskTerminal(filename, text, callback);
+    const pty = new CustomTaskTerminal(filename, text, callback, (t, f) => {
+      console.log(t);
+      console.log(f);
+
+      return "foobar";
+    });
+
     const ce = new CustomExecution(
       (): Promise<CustomTaskTerminal> =>
         new Promise((resolve) => {
@@ -39,14 +45,9 @@ export class TaskRunner {
         })
     );
 
-    const task = new Task(
-      { type: "D2" },
-      TaskScope.Workspace,
-      "D2 Task",
-      "D2 Extension",
-      ce,
-      ["$D2Matcher"]
-    );
+    const task = new TaskEx("My Named Task", { type: "D2" }, ce, [
+      "$D2Matcher",
+    ]);
 
     task.presentationOptions = {
       echo: true,
@@ -56,6 +57,7 @@ export class TaskRunner {
       panel: TaskPanelKind.Dedicated,
       showReuseMessage: false,
     };
+
     tasks.executeTask(task);
   }
 }
@@ -77,30 +79,44 @@ class CustomTaskTerminal implements Pseudoterminal {
   private fileDirectory: string;
   private docText: string;
   private callback: TaskRunnerCallback;
+  private taskCallback?: TaskFunction;
 
-  constructor(filename: string, text: string, callback: TaskRunnerCallback) {
+  constructor(
+    filename: string,
+    text: string,
+    callback: TaskRunnerCallback,
+    taskCallback?: TaskFunction
+  ) {
     this.fileName = path.parse(filename).base;
     this.fileDirectory = path.parse(filename).dir;
     this.docText = text;
     this.callback = callback;
+    this.taskCallback = taskCallback;
   }
 
+  private logging = (msg: string): void => {
+    outputChannel.appendInfo(msg);
+  };
+
+  private terminal = (err: string, flag?: boolean): void => {
+    if (flag === true) {
+      this.writeLine(
+        `[${path.join(this.fileDirectory, this.fileName)}] ${err}`
+      );
+    } else {
+      this.writeLine(err);
+    }
+  };
+
   open(): void {
+    const s = this.taskCallback?.(this.docText, this.fileDirectory);
+    console.log(s);
+
     const data: string = d2Tasks.compile(
       this.docText,
       this.fileDirectory,
-      (msg) => {
-        outputChannel.appendInfo(msg);
-      },
-      (err, flag) => {
-        if (flag === true) {
-          this.writeLine(
-            `[${path.join(this.fileDirectory, this.fileName)}] ${err}`
-          );
-        } else {
-          this.writeLine(err);
-        }
-      }
+      this.logging,
+      this.terminal
     );
 
     this.callback(data);
